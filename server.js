@@ -50,7 +50,7 @@ const allowedOrigins = [
     'http://localhost:5173', // Local development
     'http://localhost:3000', // Local development alternative
     process.env.FRONTEND_URL, // Production frontend URL from environment
-    'https://your-frontend-app.onrender.com', // Replace with your actual frontend URL
+    'https://hr-frontend-9gfc.onrender.com', // Replace with your actual frontend URL
 ];
 
 app.use(cors({

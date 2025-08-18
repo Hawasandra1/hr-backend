@@ -3,29 +3,40 @@
 const fs = require('fs');
 const path = require('path');
 const Sequelize = require('sequelize');
-const process = require('process');
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || 'development';
-const config = require(__dirname + '/../../config/config.js')[env];
-const db = {};  // <-- this was missing
+const db = {};
 
 let sequelize;
 
-// Enhanced connection setup
-if (config.use_env_variable) {
-  sequelize = new Sequelize(process.env[config.use_env_variable], config);
-} else {
-  sequelize = new Sequelize(config.database, config.username, config.password, {
-    ...config,
-    retry: {
-      max: 3, // Retry failed connections
-    }
+// ✅ Use DATABASE_URL on Render (production)
+if (env === 'production') {
+  sequelize = new Sequelize(process.env.DATABASE_URL, {
+    dialect: 'postgres',
+    protocol: 'postgres',
+    logging: false,
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+    },
   });
+} else {
+  // ✅ Local dev (MySQL)
+  sequelize = new Sequelize(
+    process.env.DB_NAME || 'hr_db_dev',
+    process.env.DB_USER || 'root',
+    process.env.DB_PASSWORD || null,
+    {
+      host: process.env.DB_HOST || '127.0.0.1',
+      dialect: 'mysql',
+    }
+  );
 }
 
-// Load all models
-fs
-  .readdirSync(__dirname)
+// Load all models in the folder
+fs.readdirSync(__dirname)
   .filter(file => {
     return (
       file.indexOf('.') !== 0 &&
@@ -34,22 +45,24 @@ fs
     );
   })
   .forEach(file => {
-    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
+    const model = require(path.join(__dirname, file))(
+      sequelize,
+      Sequelize.DataTypes
+    );
     db[model.name] = model;
   });
 
-// Set up model associations
+// Set up associations
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
   }
 });
 
-// Enhanced connection testing
+// Test DB connection
 sequelize.authenticate()
   .then(() => {
     console.log('✅ Database connection established successfully.');
-    console.log(`Database: ${config.database} on ${config.host}:${config.port || ''}`);
   })
   .catch(err => {
     console.error('❌ Unable to connect to the database:', err.message);

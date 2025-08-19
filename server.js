@@ -31,31 +31,21 @@ wss.on('connection', (ws) => {
     });
 });
 
-// --- Import Routes ---
-const authRoutes = require('./routes/authRoutes');
-const departmentRoutes = require('./routes/departmentRoutes');
-const employeeRoutes = require('./routes/employeeRoutes');
-const dashboardRoutes = require('./routes/dashboardRoutes');
-const payslipRoutes = require('./routes/payslipRoutes');
-const leaveRoutes = require('./routes/leaveRoutes');
-const projectRoutes = require('./routes/projectRoutes');
-
 // --- Middleware ---
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// --- FIXED: CORS Configuration for Production ---
+// --- CORS Configuration ---
 const allowedOrigins = [
-    'http://localhost:5173', // Local development
-    'http://localhost:3000', // Local development alternative
-    process.env.FRONTEND_URL, // Production frontend URL from environment
-    'https://hr-frontend-9gfc.onrender.com', // Replace with your actual frontend URL
+    'http://localhost:5173',
+    'http://localhost:3000',
+    process.env.FRONTEND_URL,
+    'https://hr-frontend-9gfc.onrender.com',
 ];
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         
         if (allowedOrigins.includes(origin)) {
@@ -73,7 +63,7 @@ app.use(cors({
 // --- Static File Serving ---
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// --- Health Check Route for Render ---
+// --- Health Check Route ---
 app.get('/health', (req, res) => {
     res.status(200).json({ 
         status: 'OK', 
@@ -82,15 +72,80 @@ app.get('/health', (req, res) => {
     });
 });
 
-// --- API Routes ---
-app.use('/api/auth', authRoutes);
-app.use('/api/departments', departmentRoutes);
-app.use('/api/employees', employeeRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/payslips', payslipRoutes);
-app.use('/api/leaves', leaveRoutes);
-app.use('/api/projects', projectRoutes);
+// --- DEBUG: Import Routes One by One ---
+console.log('Loading authRoutes...');
+try {
+    const authRoutes = require('./routes/authRoutes');
+    app.use('/api/auth', authRoutes);
+    console.log('✅ authRoutes loaded successfully');
+} catch (error) {
+    console.error('❌ Error loading authRoutes:', error.message);
+    process.exit(1);
+}
 
+console.log('Loading departmentRoutes...');
+try {
+    const departmentRoutes = require('./routes/departmentRoutes');
+    app.use('/api/departments', departmentRoutes);
+    console.log('✅ departmentRoutes loaded successfully');
+} catch (error) {
+    console.error('❌ Error loading departmentRoutes:', error.message);
+    process.exit(1);
+}
+
+console.log('Loading employeeRoutes...');
+try {
+    const employeeRoutes = require('./routes/employeeRoutes');
+    app.use('/api/employees', employeeRoutes);
+    console.log('✅ employeeRoutes loaded successfully');
+} catch (error) {
+    console.error('❌ Error loading employeeRoutes:', error.message);
+    process.exit(1);
+}
+
+console.log('Loading dashboardRoutes...');
+try {
+    const dashboardRoutes = require('./routes/dashboardRoutes');
+    app.use('/api/dashboard', dashboardRoutes);
+    console.log('✅ dashboardRoutes loaded successfully');
+} catch (error) {
+    console.error('❌ Error loading dashboardRoutes:', error.message);
+    process.exit(1);
+}
+
+console.log('Loading payslipRoutes...');
+try {
+    const payslipRoutes = require('./routes/payslipRoutes');
+    app.use('/api/payslips', payslipRoutes);
+    console.log('✅ payslipRoutes loaded successfully');
+} catch (error) {
+    console.error('❌ Error loading payslipRoutes:', error.message);
+    process.exit(1);
+}
+
+console.log('Loading leaveRoutes...');
+try {
+    const leaveRoutes = require('./routes/leaveRoutes');
+    app.use('/api/leaves', leaveRoutes);
+    console.log('✅ leaveRoutes loaded successfully');
+} catch (error) {
+    console.error('❌ Error loading leaveRoutes:', error.message);
+    process.exit(1);
+}
+
+console.log('Loading projectRoutes...');
+try {
+    const projectRoutes = require('./routes/projectRoutes');
+    app.use('/api/projects', projectRoutes);
+    console.log('✅ projectRoutes loaded successfully');
+} catch (error) {
+    console.error('❌ Error loading projectRoutes:', error.message);
+    process.exit(1);
+}
+
+console.log('All routes loaded, setting up error handlers...');
+
+console.log('Setting up error handling middleware...');
 // --- Error Handling Middleware ---
 app.use((err, req, res, next) => {
     console.error('Global error handler:', err);
@@ -100,19 +155,20 @@ app.use((err, req, res, next) => {
     });
 });
 
+console.log('Setting up 404 handler...');
 // --- 404 Handler ---
 app.use('*', (req, res) => {
     res.status(404).json({ message: 'Route not found' });
 });
 
+console.log('All middleware set up, starting server...');
+
 // --- Database Connection and Server Start ---
 const startServer = async () => {
     try {
-        // Test database connection
         await db.sequelize.authenticate();
         console.log('Database connection established successfully.');
         
-        // Start the server
         server.listen(PORT, '0.0.0.0', () => {
             console.log(`Server is running on port ${PORT}`);
             console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);

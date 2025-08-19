@@ -156,12 +156,13 @@ app.use((err, req, res, next) => {
 });
 
 console.log('Setting up 404 handler...');
-// --- 404 Handler ---
-app.use('*', (req, res) => {
-    res.status(404).json({ message: 'Route not found' });
-});
+// --- TEMPORARILY REMOVED: 404 Handler ---
+// Commenting out to test if this is causing the issue
+// app.use((req, res) => {
+//     res.status(404).json({ message: 'Route not found' });
+// });
 
-console.log('All middleware set up, starting server...');
+console.log('Skipped 404 handler, starting server...');
 
 // --- Database Connection and Server Start ---
 const startServer = async () => {

@@ -24,6 +24,12 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
+// --- Employee Self-Service Routes (Must come BEFORE /:id routes) ---
+router.get('/my-profile', protect, authorize('Employee'), employeeController.getMyEmployeeProfile);
+router.put('/my-profile', protect, authorize('Employee'), employeeController.updateMyEmployeeProfile);
+router.put('/my-profile/change-password', protect, authorize('Employee'), employeeController.changePassword);
+router.post('/my-profile/upload-picture', protect, authorize('Employee'), upload.single('profilePicture'), employeeController.uploadProfilePicture);
+
 // --- Admin/HR Routes for Managing All Employees ---
 router.route('/')
     .get(protect, authorize('Admin', 'HR', 'Manager'), employeeController.getAllEmployees)
@@ -33,13 +39,5 @@ router.route('/:id')
     .get(protect, authorize('Admin', 'HR', 'Manager'), employeeController.getEmployeeById)
     .put(protect, authorize('Admin', 'HR', 'Manager'), employeeController.updateEmployee)
     .delete(protect, authorize('Admin', 'HR', 'Manager'), employeeController.deleteEmployee);
-
-// --- Employee Self-Service Routes ---
-router.route('/my-profile')
-    .get(protect, authorize('Employee'), employeeController.getMyEmployeeProfile)
-    .put(protect, authorize('Employee'), employeeController.updateMyEmployeeProfile);
-
-router.put('/my-profile/change-password', protect, authorize('Employee'), employeeController.changePassword);
-router.post('/my-profile/upload-picture', protect, authorize('Employee'), upload.single('profilePicture'), employeeController.uploadProfilePicture);
 
 module.exports = router;

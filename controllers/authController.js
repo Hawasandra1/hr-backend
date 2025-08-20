@@ -112,3 +112,12 @@ const registerAdminUser = async (req, res) => {
         });
     }
 };
+module.exports = {
+    registerUser,
+    loginUser,
+    getMe,
+    registerAdminUser,
+    changeUserPassword,
+    uploadUserProfilePicture,
+    logoutUser
+};

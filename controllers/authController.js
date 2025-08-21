@@ -14,59 +14,67 @@ const generateToken = (userId) => {
 // Register User - FIXED VERSION (no double hashing)
 const registerUser = async (req, res) => {
     try {
-        const { username, email, password, role = 'Employee' } = req.body;
+        // 1. We now expect firstName and lastName, not username
+        const { firstName, lastName, email, password, position = 'Employee', role = 'Employee' } = req.body;
 
-        // Validation
-        if (!username || !email || !password) {
+        // 2. Update the validation to check for the correct fields
+        if (!firstName || !lastName || !email || !password) {
             return res.status(400).json({ 
-                message: 'Username, email, and password are required' 
+                message: 'First Name, Last Name, email, and password are required' 
             });
         }
 
-        // Check if user already exists
-        const existingUser = await User.findOne({ 
+        // 3. Check if an EMPLOYEE with this email already exists
+        const existingEmployee = await Employee.findOne({ 
             where: { email: email.toLowerCase() } 
         });
         
-        if (existingUser) {
+        if (existingEmployee) {
             return res.status(400).json({ 
-                message: 'User with this email already exists' 
+                message: 'An employee with this email already exists' 
             });
         }
 
-        // REMOVED: Manual password hashing - let the model hook handle it
-        // Create user - password will be hashed by beforeCreate hook
-        const user = await User.create({
-            username,
+        // 4. Create an EMPLOYEE, not a User.
+        // The password will be hashed by the 'beforeCreate' hook in your Employee model.
+        const employee = await Employee.create({
+            firstName,
+            lastName,
             email: email.toLowerCase(),
             password: password, // Pass plain password, hook will hash it
+            position: position,
             role: role
         });
 
-        // Generate token
-        const token = generateToken(user.id);
+        // Generate token (this can stay the same, using the new employee's ID)
+        const token = generateToken(employee.id);
 
-        // Remove password from response
-        const userResponse = {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt
+        // 5. Create a response object with the correct employee data
+        const employeeResponse = {
+            id: employee.id,
+            firstName: employee.firstName,
+            lastName: employee.lastName,
+            email: employee.email,
+            role: employee.role,
+            createdAt: employee.createdAt,
+            updatedAt: employee.updatedAt
         };
 
         res.status(201).json({
-            message: 'User registered successfully',
+            message: 'Employee registered successfully',
             token,
-            user: userResponse
+            user: employeeResponse // You can keep the key as 'user' for consistency on the frontend
         });
 
     } catch (error) {
+        // Handle Sequelize validation errors specifically
+        if (error.name === 'SequelizeValidationError') {
+            const messages = error.errors.map(e => e.message);
+            return res.status(400).json({ message: messages.join(', ') });
+        }
         console.error('Registration error:', error);
         res.status(500).json({ 
-            message: 'Server error during registration',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            message: 'Server error during registration'
         });
     }
 };

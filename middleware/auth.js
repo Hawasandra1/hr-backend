@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const { User, Employee } = require('../models');
 
-// Protect middleware - verify JWT token
+// File: src/middleware/auth.js
+
 const protect = async (req, res, next) => {
     try {
         let token;
@@ -14,24 +15,34 @@ const protect = async (req, res, next) => {
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
-        // --- THIS IS THE FIX ---
-        // We now check the userType from the token to decide which model to use
+        // --- THIS IS THE IMPROVEMENT ---
+        // First, check if the decoded token and its properties exist
+        if (!decoded || !decoded.userId) {
+            return res.status(401).json({ message: 'Access denied. Invalid token payload.' });
+        }
+        
         let currentUser;
+        
+        // Now, check the userType from the token to decide which model to use
         if (decoded.userType === 'Employee') {
             currentUser = await Employee.findByPk(decoded.userId, {
                 attributes: { exclude: ['password'] }
             });
-        } else { // Assumes 'User' or any other type
+        } else if (decoded.userType === 'User') { // Be explicit for User type
             currentUser = await User.findByPk(decoded.userId, {
                 attributes: { exclude: ['password'] }
             });
+        } else {
+            // This handles old tokens that don't have a userType.
+            // We can default to looking in the User table or deny access.
+            // Denying access is safer.
+            return res.status(401).json({ message: 'Access denied. Outdated token format.' });
         }
         
         if (!currentUser) {
             return res.status(401).json({ message: 'Access denied. User not found.' });
         }
 
-        // Add user to request object
         req.user = currentUser;
         next();
 

@@ -50,12 +50,8 @@ router.get('/health', (req, res) => {
 });
 
 // --- Protected Routes ---
-router.get('/me', protect, authController.getMe);
 router.post('/register-admin', protect, authorize('Admin'), authController.registerAdminUser);
 
-// --- Privileged User Profile Routes ---
-router.put('/my-profile/change-password', protect, authorize('Admin', 'HR', 'Manager'), authController.changeUserPassword);
-router.post('/my-profile/upload-picture', protect, authorize('Admin', 'HR', 'Manager'), upload.single('profilePicture'), authController.uploadUserProfilePicture);
 
 // REMOVED: Test password route (security risk in production)
 // Only include this in development environment

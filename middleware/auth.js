@@ -5,38 +5,34 @@ const { User } = require('../models');
 const protect = async (req, res, next) => {
     try {
         let token;
-
-        // Check for token in Authorization header
         if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
             token = req.headers.authorization.split(' ')[1];
         }
-        // Alternative: Check for token in x-access-token header
-        else if (req.headers['x-access-token']) {
-            token = req.headers['x-access-token'];
-        }
-
         if (!token) {
-            return res.status(401).json({ 
-                message: 'Access denied. No token provided.' 
-            });
+            return res.status(401).json({ message: 'Access denied. No token provided.' });
         }
 
-        // Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
-        // Find user by ID from token
-        const user = await User.findByPk(decoded.userId, {
-            attributes: { exclude: ['password'] }
-        });
-
-        if (!user) {
-            return res.status(401).json({ 
-                message: 'Access denied. User not found.' 
+        // --- THIS IS THE FIX ---
+        // We now check the userType from the token to decide which model to use
+        let currentUser;
+        if (decoded.userType === 'Employee') {
+            currentUser = await Employee.findByPk(decoded.userId, {
+                attributes: { exclude: ['password'] }
             });
+        } else { // Assumes 'User' or any other type
+            currentUser = await User.findByPk(decoded.userId, {
+                attributes: { exclude: ['password'] }
+            });
+        }
+        
+        if (!currentUser) {
+            return res.status(401).json({ message: 'Access denied. User not found.' });
         }
 
         // Add user to request object
-        req.user = user;
+        req.user = currentUser;
         next();
 
     } catch (error) {

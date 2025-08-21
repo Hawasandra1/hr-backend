@@ -5,18 +5,87 @@ const jwt = require('jsonwebtoken');
 const { User, Employee } = require('../models');
 
 // --- HELPER FUNCTION (No changes needed) ---
-const generateToken = (userId) => {
+const generateToken = (userId, userType) => { // <-- Add userType
     return jwt.sign(
-        { userId }, 
+        { userId, userType }, // <-- Add userType to the payload
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 };
 
 
-// --- REGISTRATION (No changes needed, it's already correct) ---
+const loginUser = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
+
+        const cleanEmail = email.toLowerCase().trim();
+        console.log('Login attempt for email:', cleanEmail);
+
+        // Step 1: Look for the user in the Employee table first
+        let account = await Employee.findOne({ where: { email: cleanEmail } });
+        let accountType = 'Employee';
+
+        // Step 2: If not found as an Employee, look in the User table
+        if (!account) {
+            account = await User.findOne({ where: { email: cleanEmail } });
+            accountType = 'User';
+        }
+
+        // Step 3: If not found in either table, deny access
+        if (!account) {
+            console.log('Account not found in either table:', cleanEmail);
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        // Step 4: Check the password
+        const isPasswordValid = await bcrypt.compare(password, account.password);
+        if (!isPasswordValid) {
+            console.log('Invalid password for:', cleanEmail);
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        // Step 5: Generate a token with the correct type
+        const token = generateToken(account.id, accountType);
+
+        // Step 6: Create the correct response object based on the account type
+        let userResponse;
+        if (accountType === 'Employee') {
+            userResponse = {
+                id: account.id,
+                firstName: account.firstName,
+                lastName: account.lastName,
+                email: account.email,
+                role: account.role,
+            };
+        } else { // It's a User (Admin/HR)
+            userResponse = {
+                id: account.id,
+                username: account.username, // Users have a username
+                email: account.email,
+                role: account.role,
+            };
+        }
+
+        console.log('Login successful for:', account.email, 'Role:', account.role, 'Type:', accountType);
+
+        res.status(200).json({
+            message: 'Login successful',
+            token,
+            user: userResponse
+        });
+
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ message: 'Server error during login' });
+    }
+};
+
+
+// --- EMPLOYEE REGISTRATION ---
 const registerUser = async (req, res) => {
-    // This function correctly creates an Employee
     try {
         const { firstName, lastName, email, password, position = 'Employee', role = 'Employee' } = req.body;
         if (!firstName || !lastName || !email || !password) {
@@ -34,7 +103,7 @@ const registerUser = async (req, res) => {
             position,
             role
         });
-        const token = generateToken(employee.id);
+        const token = generateToken(employee.id, 'Employee'); // Pass type on registration
         const employeeResponse = {
             id: employee.id,
             firstName: employee.firstName,
@@ -52,50 +121,6 @@ const registerUser = async (req, res) => {
         res.status(500).json({ message: 'Server error during registration' });
     }
 };
-
-
-// --- LOGIN (APPLYING THE FIX) ---
-const loginUser = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(400).json({ message: 'Email and password are required' });
-        }
-
-        // --- THIS IS THE FIX ---
-        // We now check the Employee model for the login attempt
-        const employee = await Employee.findOne({ where: { email: email.toLowerCase().trim() } });
-
-        if (!employee) {
-            return res.status(401).json({ message: 'Invalid email or password' });
-        }
-
-        const isPasswordValid = await bcrypt.compare(password, employee.password);
-        
-        if (!isPasswordValid) {
-            return res.status(401).json({ message: 'Invalid email or password' });
-        }
-
-        const token = generateToken(employee.id);
-        const employeeResponse = {
-            id: employee.id,
-            firstName: employee.firstName,
-            lastName: employee.lastName,
-            email: employee.email,
-            role: employee.role,
-        };
-
-        res.status(200).json({
-            message: 'Login successful',
-            token,
-            user: employeeResponse
-        });
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ message: 'Server error during login' });
-    }
-};
-
 
 // --- GET PROFILE (NEW SEPARATE FUNCTIONS) ---
 const getUserProfile = async (req, res) => {

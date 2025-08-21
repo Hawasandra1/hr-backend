@@ -1,149 +1,106 @@
-// Registration endpoint that matches your Employee model
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const { Employee } = require('../models'); // Adjust path as needed
-const router = express.Router();
+'use strict';
+const {
+  Model
+} = require('sequelize');
+const bcrypt = require('bcryptjs');
 
-// POST /api/auth/register
-router.post('/register', async (req, res) => {
-    try {
-        console.log('Registration request received:', {
-            firstName: req.body.firstName,
-            lastName: req.body.lastName,
-            email: req.body.email,
-            hasPassword: !!req.body.password
-        });
-
-        const { firstName, lastName, email, password, position, role } = req.body;
-
-        // Validate required fields (matching your Employee model)
-        if (!firstName || !lastName || !email || !password) {
-            return res.status(400).json({
-                message: 'First name, last name, email, and password are required',
-                missing: {
-                    firstName: !firstName,
-                    lastName: !lastName,
-                    email: !email,
-                    password: !password
-                }
-            });
-        }
-
-        // Additional validation
-        if (firstName.trim().length < 2) {
-            return res.status(400).json({
-                message: 'First name must be at least 2 characters long'
-            });
-        }
-
-        if (lastName.trim().length < 2) {
-            return res.status(400).json({
-                message: 'Last name must be at least 2 characters long'
-            });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({
-                message: 'Password must be at least 6 characters long'
-            });
-        }
-
-        // Email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({
-                message: 'Please provide a valid email address'
-            });
-        }
-
-        // Check if user already exists
-        const existingUser = await Employee.findOne({ 
-            where: { email: email.toLowerCase().trim() } 
-        });
-
-        if (existingUser) {
-            return res.status(409).json({
-                message: 'An account with this email already exists'
-            });
-        }
-
-        // Create new employee (password will be hashed by the model hook)
-        const newEmployee = await Employee.create({
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            email: email.toLowerCase().trim(),
-            password: password,
-            position: position || 'Employee', // Default position
-            role: role || 'Employee', // Default role
-            status: 'active',
-            hireDate: new Date()
-        });
-
-        // Generate JWT token
-        const token = jwt.sign(
-            { 
-                id: newEmployee.id, 
-                email: newEmployee.email, 
-                role: newEmployee.role 
-            },
-            process.env.JWT_SECRET || 'your-secret-key',
-            { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
-        );
-
-        // Return user data (excluding password)
-        const userData = {
-            id: newEmployee.id,
-            employeeId: newEmployee.employeeId,
-            firstName: newEmployee.firstName,
-            lastName: newEmployee.lastName,
-            email: newEmployee.email,
-            role: newEmployee.role,
-            position: newEmployee.position,
-            status: newEmployee.status,
-            hireDate: newEmployee.hireDate
-        };
-
-        console.log('Registration successful for:', userData.email);
-
-        res.status(201).json({
-            message: 'Registration successful',
-            token: token,
-            user: userData
-        });
-
-    } catch (error) {
-        console.error('Registration error:', error);
-
-        // Handle Sequelize validation errors
-        if (error.name === 'SequelizeValidationError') {
-            const validationErrors = error.errors.map(err => err.message);
-            return res.status(400).json({
-                message: 'Validation error',
-                errors: validationErrors
-            });
-        }
-
-        // Handle unique constraint errors
-        if (error.name === 'SequelizeUniqueConstraintError') {
-            return res.status(409).json({
-                message: 'Email already exists'
-            });
-        }
-
-        res.status(500).json({
-            message: 'Internal server error during registration',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+module.exports = (sequelize, DataTypes) => {
+  class Employee extends Model {
+    static associate(models) {
+      Employee.belongsTo(models.Department, {
+        foreignKey: 'departmentId',
+        as: 'department'
+      });
     }
-});
-
-// Health check endpoint
-router.get('/health', (req, res) => {
-    res.json({ 
-        status: 'OK', 
-        timestamp: new Date().toISOString(),
-        service: 'HR Backend API'
-    });
-});
-
-module.exports = router;
+  }
+  Employee.init({
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+      allowNull: false
+    },
+    employeeId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true
+    },
+    firstName: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    lastName: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      validate: {
+        isEmail: { msg: 'Invalid email format.' }
+      }
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        len: { args: [6], msg: 'Password must be at least 6 characters long.' }
+      }
+    },
+    role: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'Employee'
+    },
+    dateOfBirth: {
+      type: DataTypes.DATEONLY,
+      allowNull: true
+    },
+    hireDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+      defaultValue: DataTypes.NOW
+    },
+    position: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    // The 'salary' field has been removed from this model definition.
+    status: {
+      type: DataTypes.ENUM('active', 'inactive', 'on leave'),
+      allowNull: false,
+      defaultValue: 'active'
+    },
+    departmentId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'departments',
+        key: 'id',
+      },
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    }
+  }, {
+    sequelize,
+    modelName: 'Employee',
+    tableName: 'employees',
+    timestamps: true,
+    hooks: {
+      beforeCreate: async (employee) => {
+        if (employee.password) {
+          const salt = await bcrypt.genSalt(10);
+          employee.password = await bcrypt.hash(employee.password, salt);
+        }
+      },
+      beforeUpdate: async (employee) => {
+        if (employee.changed('password')) {
+          const salt = await bcrypt.genSalt(10);
+          employee.password = await bcrypt.hash(employee.password, salt);
+        }
+      }
+    }
+  });
+  return Employee;
+};

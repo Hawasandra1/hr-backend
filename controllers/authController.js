@@ -223,9 +223,7 @@ const logoutUser = async (req, res) => {
         res.status(500).json({ message: 'Server error during logout' });
     }
 
-}
-// --- FINAL STEP: UPDATE MODULE.EXPORTS ---
-// Make sure to export all the new and renamed functions
+};
 module.exports = {
     registerUser,
     loginUser,

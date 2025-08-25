@@ -187,14 +187,43 @@ const changeEmployeePassword = async (req, res) => {
 };
 
 
-// Note: For simplicity, we are skipping the separate upload functions for now
-// as they follow the exact same pattern. We can add them if needed.
-
 // We are also keeping the registerAdminUser and logoutUser as they were, they are fine.
-const registerAdminUser = async (req, res) => { /* ... your existing code ... */ };
-const logoutUser = async (req, res) => { /* ... your existing code ... */ };
+const registerAdminUser = async (req, res) => {
+    try {
+        const { username, email, password, role } = req.body;
+        if (!username || !email || !password || !role) {
+            return res.status(400).json({ message: 'Username, email, password, and role are required' });
+        }
+        const existingUser = await User.findOne({ where: { email: email.toLowerCase() } });
+        if (existingUser) {
+            return res.status(409).json({ message: 'A user with this email already exists' });
+        }
+        const user = await User.create({
+            username,
+            email: email.toLowerCase(),
+            password,
+            role
+        });
+        res.status(201).json({ 
+            message: `${role} user registered successfully`,
+            user: { id: user.id, username: user.username, email: user.email, role: user.role } 
+        });
+    } catch (error) {
+        console.error('Admin registration error:', error);
+        res.status(500).json({ message: 'Server error during admin registration' });
+    }
+};
 
+const logoutUser = async (req, res) => {
+    try {
+        console.log('User logout request received. Token will be cleared by client.');
+        res.status(200).json({ message: 'Logout successful' });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({ message: 'Server error during logout' });
+    }
 
+}
 // --- FINAL STEP: UPDATE MODULE.EXPORTS ---
 // Make sure to export all the new and renamed functions
 module.exports = {
